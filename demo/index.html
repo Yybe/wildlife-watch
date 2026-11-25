@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wildlife Watch — Species ID & Conflict Alert</title>
+<style>
+:root{
+  --bg:#0a0f0b; --bg2:#0d1410; --surface:#121a14; --surface2:#17221a; --surface3:#1d2b21;
+  --line:#24352a; --line2:#31463a;
+  --text:#e9f2ea; --muted:#9db4a4; --dim:#6d8474;
+  --moss:#4ade80; --acid:#a3e635; --amber:#fbbf24; --orange:#fb923c; --red:#f87171; --red2:#ef4444;
+  --cyan:#67e8f9; --gray:#7d8f83;
+  --mono:ui-monospace,"Cascadia Mono",Consolas,"Courier New",monospace;
+  --sans:system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg); color:var(--text); font-family:var(--sans); font-size:15px; line-height:1.5;
+  background-image:
+    radial-gradient(1100px 500px at 85% -10%, rgba(74,222,128,.07), transparent 60%),
+    radial-gradient(900px 600px at -10% 30%, rgba(103,232,249,.045), transparent 55%),
+    radial-gradient(700px 500px at 50% 110%, rgba(163,230,53,.05), transparent 60%);
+  min-height:100vh;
+}
+body::before{content:""; position:fixed; inset:0; pointer-events:none; z-index:0; opacity:.5;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0.6 0 0 0 0 0.8 0 0 0 0 0.6 0 0 0 0.035 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--line2);border-radius:6px;border:2px solid var(--bg2)}
+::-webkit-scrollbar-thumb:hover{background:var(--moss)}
+.wrap{max-width:1280px;margin:0 auto;padding:0 22px;position:relative;z-index:1}
+
+/* header */
+header{position:sticky;top:0;z-index:50;background:rgba(10,15,11,.88);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.hbar{display:flex;align-items:center;gap:14px;padding:13px 0;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px}
+.brand svg{flex:none}
+.brand h1{font-size:19px;letter-spacing:.14em;font-weight:800}
+.brand h1 span{color:var(--moss)}
+.brand small{display:block;font-size:11.5px;color:var(--muted);letter-spacing:.06em;font-weight:400}
+.chips{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.chip{font-family:var(--mono);font-size:11.5px;color:var(--muted);border:1px solid var(--line);background:var(--surface);padding:5px 10px;border-radius:999px;display:flex;align-items:center;gap:7px;white-space:nowrap}
+.chip b{color:var(--text);font-weight:600}
+.led{width:7px;height:7px;border-radius:50%;background:var(--moss);box-shadow:0 0 8px var(--moss);animation:pulse 2.4s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+
+/* pipeline strip */
+.pipe{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:14px 0 4px;font-family:var(--mono);font-size:11.5px;color:var(--dim)}
+.pipe .step{border:1px solid var(--line);background:var(--surface);padding:5px 11px;border-radius:6px;color:var(--muted)}
+.pipe .step b{color:var(--acid);font-weight:600}
+.pipe .arr{color:var(--line2)}
+
+/* cards */
+.grid{display:grid;grid-template-columns:1.08fr .92fr;gap:18px;margin-top:14px}
+.card{background:linear-gradient(180deg,var(--surface),var(--bg2));border:1px solid var(--line);border-radius:14px;overflow:hidden;animation:rise .5s ease both}
+.card:nth-child(2){animation-delay:.08s}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.chead{display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.015)}
+.chead .no{font-family:var(--mono);font-size:11px;color:var(--acid);border:1px solid var(--line2);padding:2px 7px;border-radius:5px}
+.chead h2{font-size:13px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:var(--text)}
+.chead .tag{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--cyan);border:1px solid rgba(103,232,249,.3);background:rgba(103,232,249,.07);padding:3px 9px;border-radius:999px}
+.cbody{padding:16px 18px}
+
+/* samples */
+.samples{display:flex;gap:9px;overflow-x:auto;padding-bottom:10px}
+.samp{flex:none;width:96px;cursor:pointer;border:2px solid var(--line);border-radius:9px;overflow:hidden;background:var(--surface2);transition:border-color .15s, transform .15s;position:relative}
+.samp:hover{border-color:var(--line2);transform:translateY(-2px)}
+.samp.on{border-color:var(--moss);box-shadow:0 0 0 1px var(--moss),0 4px 18px rgba(74,222,128,.25)}
+.samp img{width:100%;height:64px;object-fit:cover;display:block;filter:saturate(.9)}
+.samp .lb{font-size:9.5px;font-family:var(--mono);padding:4px 5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.samp .td{position:absolute;top:4px;right:4px;width:9px;height:9px;border-radius:50%;border:1px solid rgba(0,0,0,.5)}
+
+/* dropzone + stage */
+.drop{margin-top:12px;border:1.5px dashed var(--line2);border-radius:10px;padding:11px 14px;display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px;cursor:pointer;transition:.15s}
+.drop:hover,.drop.over{border-color:var(--moss);color:var(--text);background:rgba(74,222,128,.05)}
+.drop svg{flex:none}
+.stage{margin-top:12px;position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#000;min-height:280px;display:flex;align-items:center;justify-content:center}
+.stage img{width:100%;max-height:430px;object-fit:contain;display:block}
+.stage .scan{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(0,0,0,.09) 3px 4px)}
+.stage .busy{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(10,15,11,.6);backdrop-filter:blur(2px);color:var(--acid);font-family:var(--mono);font-size:13px;gap:10px}
+.stage.loading .busy{display:flex}
+.spin{width:16px;height:16px;border:2px solid var(--line2);border-top-color:var(--acid);border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.metabar{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.metabar b{color:var(--text);font-weight:600}
+.metabar .truth{color:var(--cyan)}
+
+/* identification */
+.idname{font-size:30px;font-weight:800;line-height:1.15;letter-spacing:-.01em}
+.idlatin{font-style:italic;color:var(--muted);font-size:14px;margin-top:2px}
+.confrow{display:flex;align-items:baseline;gap:10px;margin-top:14px}
+.confnum{font-family:var(--mono);font-size:34px;font-weight:700;color:var(--acid)}
+.conflb{font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.bar{height:8px;background:var(--surface3);border-radius:99px;overflow:hidden;margin-top:7px}
+.bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--moss),var(--acid));width:0;transition:width .5s cubic-bezier(.2,.8,.2,1)}
+.top5{margin-top:16px;display:flex;flex-direction:column;gap:7px}
+.t5{display:grid;grid-template-columns:150px 1fr 52px;align-items:center;gap:10px;font-size:12.5px}
+.t5 .nm{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.t5:first-child .nm{color:var(--text);font-weight:600}
+.t5 .bar{margin:0;height:6px}
+.t5 .pv{font-family:var(--mono);font-size:11.5px;color:var(--muted);text-align:right}
+.tierbox{margin-top:18px;border:1px solid var(--line);border-radius:10px;padding:13px 14px;background:var(--surface2)}
+.tierrow{display:flex;align-items:center;gap:12px}
+.tierbadge{font-family:var(--mono);font-weight:700;font-size:13px;padding:5px 12px;border-radius:7px;color:#0a0f0b}
+.tiertxt{font-size:12.5px;color:var(--muted)}
+.tierscale{display:flex;gap:5px;margin-top:11px}
+.ts{flex:1;text-align:center;font-family:var(--mono);font-size:10px;color:var(--dim);padding-top:5px;border-top:3px solid var(--line);transition:.2s}
+.ts.on{color:var(--text);font-weight:700}
+.verdict{margin-top:14px;padding:11px 14px;border-radius:9px;font-size:13.5px;font-weight:600;display:flex;gap:9px;align-items:center;border:1px solid}
+.v-clear{color:var(--moss);border-color:rgba(74,222,128,.35);background:rgba(74,222,128,.07)}
+.v-qual{color:var(--orange);border-color:rgba(251,146,60,.4);background:rgba(251,146,60,.08)}
+.v-empty{color:var(--muted);border-color:var(--line);background:var(--surface2)}
+.latency{margin-top:12px;font-family:var(--mono);font-size:11px;color:var(--dim)}
+
+/* alert console */
+.console{margin-top:18px}
+.cgrid{display:grid;grid-template-columns:290px 1fr 320px;gap:0}
+.cpanel{padding:16px 18px}
+.cpanel + .cpanel{border-left:1px solid var(--line)}
+.ptitle{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase;margin-bottom:13px}
+.ctl{margin-bottom:13px}
+.ctl label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:5px}
+.ctl label output{font-family:var(--mono);color:var(--acid);font-weight:600}
+input[type=range]{width:100%;appearance:none;height:5px;border-radius:99px;background:var(--surface3);outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{appearance:none;width:15px;height:15px;border-radius:50%;background:var(--moss);border:2px solid var(--bg);box-shadow:0 0 0 1px var(--moss);transition:.15s}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.2);background:var(--acid)}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--moss);border:2px solid var(--bg)}
+.btn{font-family:var(--mono);font-size:12px;padding:8px 14px;border-radius:8px;border:1px solid var(--line2);background:var(--surface3);color:var(--text);cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:8px}
+.btn:hover{border-color:var(--moss);color:var(--acid)}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:linear-gradient(135deg,rgba(74,222,128,.18),rgba(163,230,53,.12));border-color:rgba(74,222,128,.5);color:var(--acid);font-weight:700}
+.btn.primary:hover{box-shadow:0 0 18px rgba(74,222,128,.25)}
+.btn:disabled{opacity:.5;cursor:wait}
+.gaugenum{font-family:var(--mono);font-size:52px;font-weight:700;line-height:1;transition:color .3s}
+.gaugelb{font-size:11px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;margin-top:4px}
+.gaugebar{position:relative;height:10px;background:var(--surface3);border-radius:99px;margin-top:14px}
+.gaugebar i{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:linear-gradient(90deg,var(--moss),var(--amber),var(--red2));width:0;transition:width .45s cubic-bezier(.2,.8,.2,1)}
+.gaugebar .thr{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--text);opacity:.85;transition:left .2s}
+.banner{margin-top:16px;padding:13px 16px;border-radius:10px;font-weight:800;font-size:17px;letter-spacing:.1em;display:flex;align-items:center;gap:11px;border:1px solid;transition:.3s}
+.b-alert{color:#fff;background:linear-gradient(135deg,rgba(239,68,68,.3),rgba(239,68,68,.12));border-color:var(--red2);animation:alarm 1.1s infinite}
+@keyframes alarm{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.45)}50%{box-shadow:0 0 24px 4px rgba(239,68,68,.28)}}
+.b-monitor{color:var(--amber);background:rgba(251,191,36,.08);border-color:rgba(251,191,36,.4)}
+.b-clear{color:var(--moss);background:rgba(74,222,128,.07);border-color:rgba(74,222,128,.35)}
+.explain{margin-top:11px;font-size:12.5px;color:var(--muted);font-family:var(--mono);line-height:1.7}
+.feedhead{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.feedhead .site{font-family:var(--mono);font-size:12px;color:var(--cyan)}
+.feedhead .btn{margin-left:auto;padding:4px 10px;font-size:10.5px}
+.feed{max-height:252px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding-right:4px}
+.visit{display:grid;grid-template-columns:52px 10px 1fr 46px;gap:9px;align-items:center;font-size:12px;padding:7px 9px;background:var(--surface2);border:1px solid var(--line);border-radius:8px;animation:rise .3s ease both}
+.visit.clickable{cursor:pointer}
+.visit.clickable:hover{border-color:var(--line2)}
+.visit.sel{border-color:var(--moss);box-shadow:0 0 0 1px var(--moss)}
+.visit .vt{font-family:var(--mono);color:var(--dim);font-size:10.5px}
+.visit .dot{width:9px;height:9px;border-radius:50%}
+.visit .vn{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.visit .vc{font-family:var(--mono);color:var(--dim);font-size:10.5px;text-align:right}
+.feedempty{color:var(--dim);font-size:12.5px;font-style:italic;padding:14px 4px}
+
+/* replay */
+.replay{margin-top:18px}
+.rctl{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+select{font-family:var(--mono);font-size:12.5px;background:var(--surface3);color:var(--text);border:1px solid var(--line2);border-radius:8px;padding:8px 12px;cursor:pointer;outline:none}
+select:hover{border-color:var(--moss)}
+.rstats{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}
+.rstat{font-family:var(--mono);font-size:11.5px;color:var(--muted);border:1px solid var(--line);background:var(--surface2);padding:5px 11px;border-radius:999px}
+.rstat b{color:var(--text)}
+.rstat.good b{color:var(--moss)} .rstat.bad b{color:var(--red)} .rstat.warn b{color:var(--amber)}
+.chartbox{margin-top:14px;border:1px solid var(--line);border-radius:10px;background:var(--bg2);padding:10px;display:none}
+.chartbox.show{display:block;animation:rise .4s ease both}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:9px;font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+.legend span{display:flex;align-items:center;gap:6px}
+.sw{width:14px;height:4px;border-radius:2px;display:inline-block}
+
+footer{margin:26px 0 34px;color:var(--dim);font-size:12px;line-height:1.8;border-top:1px solid var(--line);padding-top:16px}
+footer b{color:var(--muted)}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--surface3);border:1px solid var(--red2);color:var(--red);font-family:var(--mono);font-size:12.5px;padding:10px 18px;border-radius:9px;z-index:99;transition:.3s;opacity:0}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.placeholder{color:var(--dim);font-style:italic;font-size:13.5px;padding:20px 0}
+@media(max-width:1080px){.cgrid{grid-template-columns:1fr 1fr}.cpanel:last-child{grid-column:1/-1;border-left:none;border-top:1px solid var(--line)}}
+@media(max-width:900px){.grid{grid-template-columns:1fr}.cgrid{grid-template-columns:1fr}.cpanel + .cpanel{border-left:none;border-top:1px solid var(--line)}.chips{margin-left:0}}
+</style>
+</head>
+<body>
+<header><div class="wrap hbar">
+  <div class="brand">
+    <svg width="38" height="38" viewBox="0 0 38 38" fill="none">
+      <circle cx="19" cy="19" r="17" stroke="#4ade80" stroke-width="1.4" opacity=".5"/>
+      <circle cx="19" cy="19" r="17" stroke="#a3e635" stroke-width="1.4" stroke-dasharray="4 7" opacity=".8"/>
+      <ellipse cx="19" cy="23" rx="6" ry="5" fill="#4ade80"/>
+      <circle cx="12.5" cy="15.5" r="2.6" fill="#4ade80"/><circle cx="17" cy="12.5" r="2.6" fill="#a3e635"/>
+      <circle cx="21.5" cy="12.5" r="2.6" fill="#a3e635"/><circle cx="25.5" cy="15.5" r="2.6" fill="#4ade80"/>
+    </svg>
+    <div><h1>WILDLIFE<span>WATCH</span></h1><small>Species identification &amp; conflict-alert console</small></div>
+  </div>
+  <div class="chips">
+    <div class="chip"><span class="led"></span><b id="chipModel">ResNet-50 · fine-tuned</b></div>
+    <div class="chip" id="chipDevice">device …</div>
+    <div class="chip" id="chipTest">test …</div>
+  </div>
+</div></header>
+
+<div class="wrap">
+  <div class="pipe">
+    <span class="step"><b>1</b> camera frame</span><span class="arr">→</span>
+    <span class="step"><b>2</b> ResNet-50 (224×224)</span><span class="arr">→</span>
+    <span class="step"><b>3</b> species + confidence</span><span class="arr">→</span>
+    <span class="step"><b>4</b> danger tier 0–4</span><span class="arr">→</span>
+    <span class="step"><b>5</b> recency-weighted rule</span><span class="arr">→</span>
+    <span class="step"><b>6</b> ALERT / no alert</span>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <div class="chead"><span class="no">01</span><h2>Camera frame</h2><span class="tag">held-out test sites</span></div>
+      <div class="cbody">
+        <div class="samples" id="samples"></div>
+        <div class="drop" id="drop">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 12V3m0 0L5.5 6.5M9 3l3.5 3.5M3 12v2.5A1.5 1.5 0 004.5 16h9a1.5 1.5 0 001.5-1.5V12" stroke="#4ade80" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Drop your own photo here, or click to browse — the model runs on it live</span>
+          <input type="file" id="file" accept="image/*" hidden>
+        </div>
+        <div class="stage" id="stage">
+          <img id="photo" alt="camera-trap frame" style="display:none">
+          <div class="scan"></div>
+          <div class="busy"><span class="spin"></span>running inference…</div>
+          <div class="placeholder" id="stagePh">Pick a sample frame above to begin</div>
+        </div>
+        <div class="metabar" id="metabar"></div>
+        <div class="rctl" style="margin-top:11px">
+          <button class="btn" id="burstBtn" hidden></button>
+          <span style="font-size:11.5px;color:var(--dim)" id="burstNote"></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="chead"><span class="no">02</span><h2>Identification</h2><span class="tag" id="idTag">13 classes</span></div>
+      <div class="cbody" id="idBody">
+        <div class="placeholder">Predictions appear here after a frame is classified.</div>
+      </div>
+    </section>
+  </div>
+
+  <section class="card console">
+    <div class="chead"><span class="no">03</span><h2>Conflict alert console</h2><span class="tag">rule-based · live</span></div>
+    <div class="cgrid">
+      <div class="cpanel">
+        <div class="ptitle">Alert rule — tune live</div>
+        <div class="ctl"><label>Score threshold <output id="oThr">0.50</output></label>
+          <input type="range" id="cThr" min="0.05" max="0.95" step="0.05" value="0.5"></div>
+        <div class="ctl"><label>Min qualifying visits <output id="oMin">2</output></label>
+          <input type="range" id="cMin" min="1" max="5" step="1" value="2"></div>
+        <div class="ctl"><label>Recency half-life (h) <output id="oHalf">6</output></label>
+          <input type="range" id="cHalf" min="1" max="24" step="1" value="6"></div>
+        <div class="ctl"><label>Night weight (18–06h) <output id="oNight">1.5</output></label>
+          <input type="range" id="cNight" min="1" max="3" step="0.1" value="1.5"></div>
+        <div class="ctl"><label>Min danger tier <output id="oTier">3</output></label>
+          <input type="range" id="cTier" min="1" max="4" step="1" value="3"></div>
+        <button class="btn" id="resetCfg">↺ reset rule</button>
+      </div>
+      <div class="cpanel">
+        <div class="ptitle">Site-day risk decision</div>
+        <div class="gaugenum" id="gNum" style="color:var(--dim)">0.000</div>
+        <div class="gaugelb">risk score ∈ [0, 1)</div>
+        <div class="gaugebar"><i id="gFill"></i><span class="thr" id="gThr" style="left:50%"></span></div>
+        <div class="banner b-clear" id="banner">● CLEAR — NO ALERT</div>
+        <div class="explain" id="explain">Classify frames to build a camera-day. The rule needs ≥ 2 qualifying visits (tier ≥ 3) and score ≥ 0.50.</div>
+        <button class="btn primary" id="loadDay" style="margin-top:12px">⚡ load a real dangerous day into the feed</button>
+        <div style="font-size:11px;color:var(--dim);margin-top:6px">Replays every visit of one unseen test site-day through the model — the alert should fire on real evidence, not a rigged one.</div>
+      </div>
+      <div class="cpanel">
+        <div class="ptitle">Evidence feed</div>
+        <div class="feedhead"><span class="site" id="feedSite">no site-day yet</span><button class="btn" id="clearFeed">clear</button></div>
+        <div class="feed" id="feed"><div class="feedempty">Each classified frame is logged here as a visit with its real capture time.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card replay">
+    <div class="chead"><span class="no">04</span><h2>Replay a real camera day</h2><span class="tag">unseen site · full pipeline</span></div>
+    <div class="cbody">
+      <div class="rctl">
+        <select id="daySel"></select>
+        <button class="btn primary" id="replayBtn">▶ replay through the model</button>
+        <span style="font-size:12px;color:var(--dim)">Every frame of one test site-day is classified, collapsed into visits, and scored hour by hour with the rule above.</span>
+      </div>
+      <div class="rstats" id="rstats"></div>
+      <div class="chartbox" id="chartbox">
+        <svg id="chart" viewBox="0 0 760 240" width="100%" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="legend">
+          <span><i class="sw" style="background:var(--acid)"></i>risk score</span>
+          <span><i class="sw" style="background:var(--amber)"></i>alert threshold</span>
+          <span><i class="sw" style="background:var(--red2)"></i>alert zone</span>
+          <span><i class="sw" style="background:var(--gray);height:9px;width:3px"></i>visit (coloured by tier)</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <b>Model:</b> ResNet-50 fine-tuned on iWildCam v2.0 (12 species + empty), evaluated on 19,928 images from 44 camera sites never seen in training — macro F1 0.6403, accuracy 0.7751.<br>
+    <b>Alert rule:</b> a declared, tunable function (tier-weighted, recency-decayed, night-biased noisy-OR) — no conflict corpus carries ground truth, so alerts are triage for a human ranger, <b>never authority to act</b>.<br>
+    <b>Imagery:</b> Snapshot Safari / Oxford WildCam, CC BY 4.0 · release iWildCam v2.0 (WILDS), CDLA-Permissive-1.0 · credit Beery, Cole &amp; Gjoka (2020).
+  </footer>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const TIER_C = {0:'#7d8f83',1:'#4ade80',2:'#facc15',3:'#fb923c',4:'#f87171'};
+const TIER_L = {0:'no animal',1:'nuisance / prey',2:'livestock risk',3:'serious threat',4:'lethal to people'};
+let META = null, CFG = {}, visits = [], activeKey = null, scoreTimer = null, currentSample = null;
+
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),3200); }
+async function api(path, opts){ const r = await fetch(path, opts); const j = await r.json(); if(!r.ok) throw new Error(j.error||r.status); return j; }
+const fmtT = iso => iso.slice(11,16);
+
+function readCfg(){
+  CFG = {score_threshold:+$('cThr').value, min_visits:+$('cMin').value, half_life_hours:+$('cHalf').value,
+         night_weight:+$('cNight').value, tier_min:+$('cTier').value};
+  $('oThr').textContent = CFG.score_threshold.toFixed(2); $('oMin').textContent = CFG.min_visits;
+  $('oHalf').textContent = CFG.half_life_hours; $('oNight').textContent = CFG.night_weight.toFixed(1);
+  $('oTier').textContent = CFG.tier_min;
+  $('gThr').style.left = (CFG.score_threshold*100)+'%';
+}
+function setCfg(c){ $('cThr').value=c.score_threshold; $('cMin').value=c.min_visits; $('cHalf').value=c.half_life_hours;
+  $('cNight').value=c.night_weight; $('cTier').value=c.tier_min; readCfg(); }
+
+async function init(){
+  META = await api('/api/meta');
+  setCfg(META.default_cfg);
+  $('chipDevice').innerHTML = '<b>'+ (META.gpu || META.device) +'</b>';
+  $('chipTest').innerHTML = 'test <b>'+META.test_stats.images.toLocaleString()+'</b> imgs · <b>'+META.test_stats.sites+'</b> unseen sites · F1 <b>'+META.test_stats.macro_f1+'</b>';
+  $('idTag').textContent = META.classes.length + ' classes';
+  const strip = $('samples');
+  META.samples.forEach(s=>{
+    const d = document.createElement('div'); d.className='samp'; d.dataset.name=s.name;
+    d.innerHTML = '<img loading="lazy" src="/api/image/'+s.name+'" alt="'+s.common+'"><span class="td" style="background:'+TIER_C[META.classes.find(c=>c.species===s.species).tier]+'"></span><div class="lb">'+s.common+'</div>';
+    d.onclick = ()=>selectSample(s, d);
+    strip.appendChild(d);
+  });
+  const sel = $('daySel');
+  META.days.forEach((d,i)=>{ const o=document.createElement('option'); o.value=i;
+    o.textContent = 'Site '+d.site+' · '+d.day+' · '+d.frames+' frames'; sel.appendChild(o); });
+  ['cThr','cMin','cHalf','cNight','cTier'].forEach(id=>$(id).addEventListener('input',()=>{readCfg(); queueScore();}));
+  $('resetCfg').onclick = ()=>{ setCfg(META.default_cfg); queueScore(); };
+  $('clearFeed').onclick = ()=>{ visits=[]; activeKey=null; selVisit=-1; renderFeed(); queueScore(); };
+  const drop=$('drop'), file=$('file');
+  drop.onclick = ()=>file.click();
+  file.onchange = ()=>{ if(file.files[0]) upload(file.files[0]); file.value=''; };
+  ['dragover','dragenter'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('over');}));
+  ['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('over');}));
+  drop.addEventListener('drop',ev=>{ const f=ev.dataTransfer.files[0]; if(f) upload(f); });
+  $('replayBtn').onclick = runReplay;
+  $('loadDay').onclick = async ()=>{
+    if(!META || !META.days.length){ toast('no replay days available'); return; }
+    const b=$('loadDay'); b.disabled=true; b.innerHTML='<span class="spin"></span>replaying the day…';
+    const d = META.days[0];
+    try{
+      const r = await api('/api/replay',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({site:d.site,day:d.day,cfg:CFG})});
+      activeKey = r.site+'|'+r.day;
+      visits = r.visits.map(v=>({t:v.start, tier:v.tier, conf:v.conf, species:v.species, common:v.common, seq:v.start, n:v.frames, name:v.name, truth:v.truth, site:r.site}));
+      selVisit = -1; currentSample = null; setBurstBtn();
+      renderFeed(); await doScore();
+      toast(r.n_frames+' frames -> '+r.visits.length+' visits: '+(r.alert?'ALERT fired':'no alert on this day'));
+    }catch(e){ toast('Load failed: '+e.message); }
+    b.disabled=false; b.innerHTML='⚡ load a real dangerous day into the feed';
+  };
+  $('burstBtn').onclick = async ()=>{
+    if(!currentSample) return;
+    const b=$('burstBtn'); b.disabled=true; b.innerHTML='<span class="spin"></span>classifying burst…';
+    $('stage').classList.add('loading');
+    try{
+      const p = await api('/api/burst',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:currentSample.name})});
+      renderPrediction(p); addVisit(p);
+    }catch(e){ toast('Burst failed: '+e.message); }
+    b.disabled=false; setBurstBtn(); $('stage').classList.remove('loading');
+  };
+  const jag = META.samples.find(s=>s.species==='panthera onca') || META.samples[0];
+  selectSample(jag, strip.querySelector('[data-name="'+jag.name+'"]'));
+}
+
+function setBurstBtn(){
+  const b=$('burstBtn');
+  if(currentSample && currentSample.burst_n>1){ b.hidden=false;
+    b.innerHTML='＋ classify full burst · '+currentSample.burst_n+' frames';
+    $('burstNote').textContent='A camera trap fires in bursts — the whole burst counts as ONE visit, modal species + max confidence.';
+  } else { b.hidden=true; $('burstNote').textContent=''; }
+}
+
+async function selectSample(s, el){
+  document.querySelectorAll('.samp').forEach(x=>x.classList.remove('on'));
+  if(el) el.classList.add('on');
+  currentSample = s; setBurstBtn();
+  $('photo').src = '/api/image/'+s.name; $('photo').style.display='block'; $('stagePh').style.display='none';
+  $('stage').classList.add('loading');
+  try{
+    const p = await api('/api/predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:s.name})});
+    renderPrediction(p); addVisit(p);
+  }catch(e){ toast('Prediction failed: '+e.message); }
+  $('stage').classList.remove('loading');
+}
+
+async function upload(f){
+  if(!f.type.startsWith('image/')){ toast('Not an image file'); return; }
+  $('stage').classList.add('loading'); $('stagePh').style.display='none';
+  $('photo').src = URL.createObjectURL(f); $('photo').style.display='block';
+  document.querySelectorAll('.samp').forEach(x=>x.classList.remove('on'));
+  currentSample = null; setBurstBtn();
+  const fd = new FormData(); fd.append('file', f);
+  try{
+    const p = await api('/api/predict',{method:'POST',body:fd});
+    renderPrediction(p); addVisit(p);
+  }catch(e){ toast('Upload rejected: '+e.message); }
+  $('stage').classList.remove('loading');
+}
+
+function renderPrediction(p){
+  const tier = p.danger_tier;
+  const vClass = tier===0 ? 'v-empty' : (tier>=CFG.tier_min ? 'v-qual' : 'v-clear');
+  const vText = tier===0 ? 'No animal detected — nothing to alert on'
+    : tier>=CFG.tier_min ? 'Qualifying sighting — tier '+tier+' ('+TIER_L[tier]+') feeds the alert rule'
+    : 'Low-risk species — logged, but cannot raise an alert at tier ≥ '+CFG.tier_min;
+  $('idBody').innerHTML =
+    '<div class="idname">'+p.common+'</div><div class="idlatin">'+p.species+'</div>'+
+    '<div class="confrow"><span class="confnum">'+(p.confidence*100).toFixed(1)+'%</span><span class="conflb">model confidence</span></div>'+
+    '<div class="bar"><i style="width:'+(p.confidence*100)+'%"></i></div>'+
+    '<div class="top5">'+p.top5.map(t=>
+      '<div class="t5"><span class="nm">'+t.common+'</span><div class="bar"><i style="width:'+(t.p*100)+'%;background:'+(t.species===p.species?'linear-gradient(90deg,var(--moss),var(--acid))':'var(--line2)')+'"></i></div><span class="pv">'+(t.p*100).toFixed(1)+'</span></div>').join('')+'</div>'+
+    '<div class="tierbox"><div class="tierrow"><span class="tierbadge" style="background:'+TIER_C[tier]+'">TIER '+tier+'</span><span class="tiertxt">'+TIER_L[tier]+'</span></div>'+
+    '<div class="tierscale">'+[0,1,2,3,4].map(t=>'<div class="ts'+(t===tier?' on':'')+'" style="border-top-color:'+(t===tier?TIER_C[t]:'var(--line)')+'">'+t+'</div>').join('')+'</div></div>'+
+    '<div class="verdict '+vClass+'">'+(tier>=CFG.tier_min&&tier>0?'⚠':'✓')+' '+vText+'</div>'+
+    '<div class="latency">inference '+p.ms+' ms on '+p.device+(p.n_frames?' · burst of '+p.n_frames+' frames → 1 visit':'')+(p.meta.truth?' · ground truth: <span style="color:var(--cyan)">'+p.meta.truth+'</span>'+(p.meta.truth===p.species?' ✓':' ✗ (model error — shown honestly)'):'')+'</div>';
+  const m = p.meta;
+  $('metabar').innerHTML = '<span>site <b>'+m.site+'</b></span><span>captured <b>'+m.datetime+'</b></span>'+
+    (m.truth?'<span class="truth">label: '+m.truth+'</span><span style="color:var(--cyan)">unseen test site</span>':'<span class="truth">your upload · live capture</span>');
+}
+
+function addVisit(p){
+  const key = p.meta.site+'|'+p.meta.day;
+  if(key!==activeKey){ visits=[]; activeKey=key; }
+  const v = {t:p.meta.datetime, tier:p.danger_tier, conf:p.confidence, species:p.species,
+             common:p.common, seq:p.meta.seq, n:p.n_frames||1, site:p.meta.site,
+             truth:p.meta.truth, name:currentSample?currentSample.name:null};
+  selVisit = -1;
+  const i = visits.findIndex(x=>x.seq===v.seq);
+  if(i>=0) visits[i]=v; else visits.push(v);
+  renderFeed(); queueScore();
+}
+function renderFeed(){
+  $('feedSite').textContent = activeKey ? 'site '+activeKey.split('|')[0]+' · '+activeKey.split('|')[1] : 'no site-day yet';
+  const f=$('feed');
+  if(!visits.length){ f.innerHTML='<div class="feedempty">Each classified frame is logged here as a visit with its real capture time.</div>'; return; }
+  f.innerHTML = visits.slice().reverse().map((v,ri)=>{
+    const i = visits.length-1-ri;
+    return '<div class="visit'+(v.name?' clickable':'')+(i===selVisit?' sel':'')+'" data-i="'+i+'"><span class="vt">'+fmtT(v.t)+'</span><span class="dot" style="background:'+TIER_C[v.tier]+'"></span><span class="vn">'+v.common+(v.n>1?' · '+v.n+'f':'')+'</span><span class="vc">'+(v.conf*100).toFixed(0)+'%</span></div>';
+  }).join('');
+  f.querySelectorAll('.visit.clickable').forEach(el=>el.onclick=()=>{ selVisit=+el.dataset.i; showVisitFrame(visits[selVisit]); renderFeed(); });
+}
+let selVisit = -1;
+function showVisitFrame(v){
+  $('photo').src = '/api/image/'+v.name; $('photo').style.display='block'; $('stagePh').style.display='none';
+  $('metabar').innerHTML = '<span>site <b>'+v.site+'</b></span><span>captured <b>'+v.t+'</b></span>'+
+    '<span class="truth">model: '+v.species+' '+(v.conf*100).toFixed(0)+'%</span>'+
+    (v.truth?'<span class="truth">label: '+v.truth+'</span>':'')+
+    '<span style="color:var(--cyan)">from the loaded camera-day</span>';
+  document.querySelectorAll('.samp').forEach(x=>x.classList.remove('on'));
+}
+function queueScore(){ clearTimeout(scoreTimer); scoreTimer=setTimeout(doScore,120); }
+async function doScore(){
+  try{
+    const r = await api('/api/score',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({visits:visits.map(v=>({t:v.t,tier:v.tier,conf:v.conf})),cfg:CFG})});
+    $('gNum').textContent = r.score.toFixed(3);
+    $('gNum').style.color = r.alert?'var(--red)':(r.qualifying>0?'var(--amber)':'var(--moss)');
+    $('gFill').style.width = (r.score*100)+'%';
+    const b=$('banner');
+    if(r.alert){ b.className='banner b-alert'; b.textContent='⚠ ALERT — NOTIFY RANGER'; }
+    else if(r.qualifying>0){ b.className='banner b-monitor'; b.textContent='◉ MONITOR — BELOW THRESHOLD'; }
+    else { b.className='banner b-clear'; b.textContent='● CLEAR — NO ALERT'; }
+    $('explain').innerHTML = r.qualifying+' qualifying visit'+(r.qualifying===1?'':'s')+' (tier ≥ '+CFG.tier_min+') · score '+r.score.toFixed(3)+' vs threshold '+CFG.score_threshold.toFixed(2)+' · min visits '+CFG.min_visits+
+      (r.alert?'<br>→ alert fires: evidence is recent, dangerous and repeated.'
+        : r.qualifying>0?'<br>→ suppressed: needs '+(CFG.min_visits-r.qualifying>0?(CFG.min_visits-r.qualifying)+' more qualifying visit(s)':'a higher score')+' — a lone sighting is not an incident.'
+        :'<br>→ no qualifying species seen yet.');
+  }catch(e){ toast('Scoring failed: '+e.message); }
+}
+
+async function runReplay(){
+  const d = META.days[+$('daySel').value];
+  const btn=$('replayBtn'); btn.disabled=true; btn.innerHTML='<span class="spin"></span>classifying '+d.frames+' frames…';
+  $('rstats').innerHTML='';
+  try{
+    const r = await api('/api/replay',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({site:d.site,day:d.day,cfg:CFG})});
+    drawChart(r);
+    const match = r.alert===r.truth_qualifying;
+    $('rstats').innerHTML =
+      '<span class="rstat"><b>'+r.n_frames+'</b> frames → <b>'+r.visits.length+'</b> visits</span>'+
+      '<span class="rstat">peak score <b>'+r.peak.toFixed(3)+'</b></span>'+
+      '<span class="rstat">'+r.seconds+' s on '+META.device+'</span>'+
+      '<span class="rstat '+(r.alert?'bad':'good')+'">rule says <b>'+(r.alert?'ALERT':'no alert')+'</b></span>'+
+      '<span class="rstat">ground truth: <b>'+(r.truth_qualifying?'big cat present':'no qualifying species')+'</b></span>'+
+      '<span class="rstat '+(match?'good':'warn')+'"><b>'+(match?'✓ decision matches truth':'✗ decision differs from truth')+'</b></span>';
+  }catch(e){ toast('Replay failed: '+e.message); }
+  btn.disabled=false; btn.innerHTML='▶ replay through the model';
+}
+
+function drawChart(r){
+  const W=760,H=240,L=44,R=14,T=16,B=34, iw=W-L-R, ih=H-T-B;
+  const x=h=>L+iw*h/24, y=s=>T+ih*(1-s);
+  let svg='<defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a3e635" stop-opacity=".28"/><stop offset="1" stop-color="#a3e635" stop-opacity="0"/></linearGradient></defs>';
+  for(let g=0;g<=4;g++){ const s=g/4;
+    svg+='<line x1="'+L+'" y1="'+y(s)+'" x2="'+(W-R)+'" y2="'+y(s)+'" stroke="#24352a" stroke-width="1"/>'+
+         '<text x="'+(L-8)+'" y="'+(y(s)+4)+'" fill="#6d8474" font-size="10" text-anchor="end" font-family="monospace">'+s.toFixed(2)+'</text>'; }
+  for(let h=0;h<=24;h+=4){ svg+='<text x="'+x(h)+'" y="'+(H-12)+'" fill="#6d8474" font-size="10" text-anchor="middle" font-family="monospace">'+String(h).padStart(2,'0')+':00</text>'; }
+  const thr=CFG.score_threshold;
+  let zone='', inZ=false, zs=0;
+  r.grid.forEach((g,i)=>{ const above=g.score>=thr;
+    if(above&&!inZ){inZ=true;zs=g.h;} if(!above&&inZ){inZ=false;zone+='<rect x="'+x(zs)+'" y="'+T+'" width="'+(x(g.h)-x(zs))+'" height="'+ih+'" fill="#ef4444" opacity=".13"/>';} });
+  if(inZ) zone+='<rect x="'+x(zs)+'" y="'+T+'" width="'+(x(24)-x(zs))+'" height="'+ih+'" fill="#ef4444" opacity=".13"/>';
+  svg+=zone;
+  const pts=r.grid.map(g=>x(g.h)+','+y(g.score)).join(' ');
+  svg+='<polygon points="'+x(0)+','+y(0)+' '+pts+' '+x(24)+','+y(0)+'" fill="url(#ag)"/>';
+  svg+='<polyline points="'+pts+'" fill="none" stroke="#a3e635" stroke-width="2.2" stroke-linejoin="round"/>';
+  svg+='<line x1="'+L+'" y1="'+y(thr)+'" x2="'+(W-R)+'" y2="'+y(thr)+'" stroke="#fbbf24" stroke-width="1.4" stroke-dasharray="6 5"/>';
+  svg+='<text x="'+(W-R)+'" y="'+(y(thr)-6)+'" fill="#fbbf24" font-size="10" text-anchor="end" font-family="monospace">threshold '+thr.toFixed(2)+'</text>';
+  r.visits.forEach(v=>{ const h=+v.start.slice(11,13)+ +v.start.slice(14,16)/60;
+    svg+='<rect x="'+(x(h)-1.5)+'" y="'+(H-B+2)+'" width="3" height="10" rx="1" fill="'+TIER_C[v.tier]+'"><title>'+v.start+' — '+v.common+' (tier '+v.tier+', '+(v.conf*100).toFixed(0)+'%)</title></rect>'; });
+  const pk=r.grid.reduce((a,b)=>b.score>a.score?b:a);
+  svg+='<circle cx="'+x(pk.h)+'" cy="'+y(pk.score)+'" r="4" fill="'+(r.alert?'#ef4444':'#a3e635')+'" stroke="#0a0f0b" stroke-width="1.5"><title>peak '+pk.score.toFixed(3)+' at '+String(pk.h).padStart(2,'0')+':00</title></circle>';
+  svg+='<text x="'+L+'" y="'+(T-4)+'" fill="#9db4a4" font-size="11" font-family="monospace">Site '+r.site+' · '+r.day+' · '+r.visits.length+' visits · '+(r.alert?'ALERT FIRED':'no alert')+'</text>';
+  $('chart').innerHTML=svg; $('chartbox').classList.add('show');
+}
+
+init().catch(e=>toast('Startup failed: '+e.message));
+</script>
+</body>
+</html>

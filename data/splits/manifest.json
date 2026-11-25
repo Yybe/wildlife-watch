@@ -1,0 +1,108 @@
+{
+  "generated_utc": "2026-10-23T16:30:54.032411+00:00",
+  "species_coverage": {
+    "train_classes": 13,
+    "test_classes": 13,
+    "classes_absent_from_test": [],
+    "test_classes_under_100_images": [
+      "tayassu pecari"
+    ]
+  },
+  "source": "thanhquang71/iwildcam-v2-0-2020-wilds-dataset (iWildCam v2.0 metadata.csv + train images)",
+  "image_dir_in_dataset": "iwildcam_v2.0/train",
+  "seed": 13,
+  "top_k_species": 12,
+  "max_images_per_class": 3000,
+  "empty_class_retained": true,
+  "mode": "official",
+  "image_paths_note": "the mirror stores every split's image under iwildcam_v2.0/train/; probing iwildcam_v2.0/val/<uuid>.jpg returns 404 and is not evidence of missing images",
+  "test_is_out_of_distribution": true,
+  "held_out_test_sites": "n/a (official split sites)",
+  "val_camera_days": "n/a (official split)",
+  "capping_unit": "sequence (burst-safe)",
+  "class_counts": {
+    "train": {
+      "empty": 2999,
+      "tayassu pecari": 2991,
+      "dasyprocta punctata": 2997,
+      "puma concolor": 2991,
+      "leopardus pardalis": 2996,
+      "panthera onca": 1966,
+      "bos taurus": 1751,
+      "aepyceros melampus": 2642,
+      "cephalophus nigrifrons": 2996,
+      "urocyon cinereoargenteus": 2740,
+      "meleagris ocellata": 2993,
+      "crax rubra": 2999,
+      "mazama temama": 2999
+    },
+    "val": {
+      "empty": 2399,
+      "tayassu pecari": 1430,
+      "dasyprocta punctata": 210,
+      "puma concolor": 241,
+      "leopardus pardalis": 470,
+      "panthera onca": 496,
+      "bos taurus": 276,
+      "aepyceros melampus": 267,
+      "cephalophus nigrifrons": 931,
+      "urocyon cinereoargenteus": 310,
+      "meleagris ocellata": 909,
+      "crax rubra": 2165,
+      "mazama temama": 130
+    },
+    "test": {
+      "empty": 2996,
+      "tayassu pecari": 2,
+      "dasyprocta punctata": 1087,
+      "puma concolor": 776,
+      "leopardus pardalis": 1126,
+      "panthera onca": 1240,
+      "bos taurus": 1986,
+      "aepyceros melampus": 2991,
+      "cephalophus nigrifrons": 1420,
+      "urocyon cinereoargenteus": 990,
+      "meleagris ocellata": 2998,
+      "crax rubra": 2116,
+      "mazama temama": 200
+    }
+  },
+  "split_sizes": {
+    "train": 36060,
+    "val": 10234,
+    "test": 19928
+  },
+  "split_locations": {
+    "train": 199,
+    "val": 32,
+    "test": 44
+  },
+  "split_sequences": {
+    "train": 5543,
+    "val": 1843,
+    "test": 2952
+  },
+  "leakage_checks": {
+    "train_vs_val": {
+      "seq": 0,
+      "camera_day": 0,
+      "location": 0
+    },
+    "train_vs_test": {
+      "seq": 0,
+      "camera_day": 0,
+      "location": 0
+    },
+    "val_vs_test": {
+      "seq": 0,
+      "camera_day": 0,
+      "location": 0
+    },
+    "duplicate_filenames": 0
+  },
+  "manifest_sha256_16": {
+    "train.csv": "42278afe5b4e2f95",
+    "val.csv": "e70bdc781d8013f8",
+    "test.csv": "e2ea8724f5e84d90"
+  }
+}

@@ -1,0 +1,127 @@
+# Experiment configurations — single source of truth for every run in this project.
+# Values here are copied from what actually executed (`data/splits/manifest.json`,
+# `outputs/logs/*/experiment_log.jsonl`), not from intentions. Seed 13 everywhere.
+
+dataset:
+  name: iWildCam v2.0 (WILDS camera-trap benchmark)
+  mirror: thanhquang71/iwildcam-v2-0-2020-wilds-dataset
+  licence: CDLA-Permissive-1.0 (WILDS datasets page, iWildCam section)
+  licence_checked: 2026-10-24
+  licence_evidence: docs/LICENCE_EVIDENCE.md (verbatim clause quotes, heading-boundary proof of the corrected misread)
+  images_labelled: 203029
+  splits:
+    mode: official            # benchmark's own train/val/test, disjoint on camera site and date
+    seed: 13
+    top_k_species: 12         # plus label 0 = "empty", kept so the alert can abstain
+    max_images_per_class: 3000
+    capping_unit: sequence     # burst-safe: whole visits, never individual frames
+    sizes: {train: 36060, val: 10234, test: 19928}
+    sites: {train: 199, val: 32, test: 44}
+    sha256_16: {train: 42278afe5b4e2f95, val: e70bdc781d8013f8, test: e2ea8724f5e84d90}
+    leakage: {seq_overlap: 0, camera_day_overlap: 0, location_overlap_train_test: 0, duplicate_filenames: 0}
+  detection_set:
+    name: ankanghosh651/object-detection-wildlife-dataset-yolo-format
+    licence: MIT (as reported by the Kaggle API)
+    classes: [buffalo, elephant, rhino, zebra]
+    shipped_sizes: {train: 1203, valid: 150, test: 151}
+    deduplicated_sizes: {train: 1180, valid: 144, test: 139}
+    cross_split_duplicate_groups: 17        # byte-identical images shared between splits
+
+hardware:
+  device: NVIDIA GeForce RTX 3060 Laptop GPU (6.0 GB VRAM), 16 GB RAM, Windows
+  torch: 2.7.1+cu118
+  measured: {resnet50_224_img_per_s: 150, yolov8n_ms_per_frame: 26.8, frozen_feature_pass_s: 484}
+
+experiments:
+  - id: 01_dataset_audit_and_splits
+    output: outputs/logs/notebook02/.. (audit) + outputs/logs/audit_summary.md
+    compute: CPU only
+  - id: 02_baseline_vs_finetune
+    baseline: {model: resnet50_imagenet1k_v1, head: logistic_balanced, features: fp32_unscaled,
+               test_macro_f1: 0.6245, test_accuracy: 0.7623, val_macro_f1: 0.5400, head_fit_s: 244}
+    fine_tune: {unfrozen: "fc,layer4", optimizer: AdamW, lr: 1e-4, backbone_lr: 1e-5, batch: 64,
+                epochs: 8, loss: CrossEntropyLoss(class_weights),
+                test_macro_f1: 0.6043, test_accuracy: 0.7320, val_macro_f1: 0.5520,
+                finding: below baseline out of distribution; test peaked at epoch 4-5}
+    references: {majority_class: 0.0201, random: 0.0645}
+    confound_control: {status: partial, name: naive_recipe_at_equal_length, epochs_planned: 30,
+      epochs_run: 20, final_epoch_test_macro_f1: 0.5965, final_epoch_val: 0.5506, batch: 64,
+      selection: final_epoch, artifacts: outputs/logs/notebook02_30ep/train_history.csv,
+      stopped_because: "nbconvert crashed while writing the executed notebook: UnicodeDecodeError under
+        the cp1252 locale on a non-ASCII byte in the notebook text. Fixed by exporting PYTHONUTF8=1 in
+        scripts/run_after_training.sh. The training itself was unaffected; only the file write failed.",
+      reading: "answers the confound already: the naive recipe at 20 epochs with final-epoch selection
+        scores 0.5965, below the 0.6245 frozen baseline and below its own 0.6113 peak at epoch 5 in the
+        8-epoch run, so training longer does not rescue it. Arm A's win is the recipe - augmentation,
+        label smoothing, best-val checkpoint - not the extra epochs."}
+  - id: 10_results_showcase
+    purpose: presentation-level evidence rebuilt from existing artifacts (no retraining)
+    measured: {accuracy: 0.7762, macro_f1: 0.6432, micro_auc: 0.9394, macro_auc: 0.9394,
+               val_loss_at_selected_checkpoint: 1.1436, selected_epoch: 11, epochs_run: 30}
+    figures: [training_and_validation_curves.png, roc_curves.png, prediction_showcase.png,
+              alert_decision_example.png]
+    generator: scripts/make_notebook10.py
+    limitation: "per-epoch val_loss was not logged by the 30-epoch run; wildlife.py logs it from now on"
+  - id: 03_from_scratch_fundamentals
+    tests: {command: "python DL_PBL/tests/test_from_scratch.py", checks: 21, status: pass}
+    # Two different problems produce optimizer losses; never quote one set without saying which.
+    optimizers_on_wildlife_tabular_notebook03: {column: loss_final, batch_gd: 1.2569, sgd: 1.2573,
+                                                momentum: 0.3008, nesterov: 0.3197,
+                                                samples_seen_batch_gd: 318800, samples_seen_others: 12752}
+    optimizers_on_test_harness_problem: {batch_gd: 1.422, sgd: 1.421, momentum: 0.4067, nesterov: 0.3855,
+                                         source: outputs/logs/test_from_scratch_summary.txt}
+    key_measured: {gradient_check_max_abs_error: 3.513e-10, hebbian_final_norm: 3448,
+                   modified_hebbian_final_norm: 1.416, svd_rank_for_95pct_variance: 6,
+                   svd_rank_after_zscore: 22, zero_init_hidden_distance: 0.0,
+                   rbm_free_energy_drop: 0.1209, xor_single_unit_best_accuracy: 0.75}
+    note: values regenerate with the split files, so re-run tests/test_from_scratch.py and refresh this
+          block after any change to make_splits.py; scripts/verify_claims.py fails if docs drift away
+  - id: 04_feature_bank_and_heads
+    features: {cache: data/processed/feature_bank.npz, dtype: float16, scaler: StandardScaler}
+    arms: {logreg_balanced: 0.6107, mlp512_dropout_l2: 0.6407, mlp512_nodropout: 0.6219,
+           mlp512_dropout_nol2: 0.6212, mlp2048_nodrop: 0.6236}      # test macro F1, all 13 classes
+    val_selected: mlp512_nodropout
+    gate_retrospective: {alerts: 74, true: 63, false: 11, missed: 76, precision: 0.8514, recall: 0.4532,
+                         per_frame: {alerts: 173, false: 58, recall: 0.8273},
+                         camera_days: 633, qualifying_camera_days: 139}
+    caveat: bank arms are not comparable with 02/07 (float16 + scaled features)
+  - id: 05_detection_yolo
+    model: yolov8n.pt (COCO pretrained, fine-tuned)
+    train: {epochs: 50, imgsz: 640, batch: 8, seed: 13, seconds: 984.5, trained_on: deduplicated lists}
+    test_deduplicated: {mAP50: 0.9469, mAP50_95: 0.7940, precision: 0.9125, recall: 0.9144}
+    test_as_shipped: {mAP50: 0.9487, mAP50_95: 0.7981}
+    edge: {ms_per_frame: 26.8, fps: 37.3, peak_gpu_mb: 149.4, detections_per_frame: 1.53}
+  - id: 07_longer_training
+    armA: {name: finetune_reg, unfrozen: "fc,layer4", lr: 1e-4, label_smoothing: 0.1, batch: 32,
+           augmentation: "RRC(0.5-1.0) + flip + jitter0.4 + grayscale0.1 + blur",
+           patience: 8, epochs_run: 19, best_epoch: 11, val_best: 0.5828,
+           test_macro_f1: 0.6461, test_macro_f1_rich_classes: 0.7000, test_accuracy: 0.7752,
+           seconds: 2604.1}
+    armB: {name: head_only_aug, unfrozen: fc, lr: 3e-4, same_augmentation: true,
+           patience: 8, epochs_run: 15, best_epoch: 7, val_best: 0.4979,
+           test_macro_f1: 0.5702, test_accuracy: 0.7136, seconds: 2127.2}
+    full_30_epoch_pass: {patience: 0, epochs: 30, status: done, armA_epochs_run: 30, armA_best_epoch: 11, armA_val_best: 0.5828, armA_test_macro_f1: 0.6403, armB_epochs_run: 30, armB_best_epoch: 4, armB_test_macro_f1: 0.5480}
+
+  - id: 08_predictive_alert
+    design: {horizon_hours: 6, window_hours: 24, tier_min: 3, unit: camera-day,
+             budget_days: 74, comparators: [volume, retrospective, climatology, chance, logistic, lstm]}
+    status: executed 2026-10-24 on the official test split (625 test camera-days, 47 positive under the
+      6-hour horizon, budget 74 days); verdict below
+    evidence_ceiling: {positive_days: 47, days_with_modelled_danger_sighting: 41, recall_ceiling: 0.8723,
+      note: "the classifier loses only 6 days, so it is NOT what caps forecast recall - corrects the
+      earlier 24-camera-day claim, which counted hour points under the gate's own definition"}
+    day_level_results: {persistence: {recall: 0.6170, auc: 0.8742}, volume: {recall: 0.3830, auc: 0.7113},
+      climatology: {recall: 0.1702, auc: 0.5453}, logistic_full: {recall: 0.1064, auc: 0.3122},
+      lstm: {recall: 0.0213, auc: 0.4352}, site_prior: {recall: 0.0638, auc: 0.5},
+      chance: {recall: 0.1184}}
+    domain_shift_ablation: {change: "drop site_qualifying_prior, constant on unseen sites and the largest
+      logistic weight (+1.505)", test_auc: "0.3122 -> 0.8541", budget_recall: "0.1064 -> 0.4894",
+      val_auc: "0.3756 -> 0.5624", declared: exploratory,
+      bars: {vs_volume_1_10x: "0.4894 >= 0.4213 CLEARED",
+             vs_pre_registered_max_counter: "0.4894 < 0.6787 NOT cleared"}}
+    measurement_fix: "day_level_budget ties were broken by calendar order, which made the site prior report a
+      fabricated 0.000; now seeded, with tied_at_cut reported. Guard: tests/test_tie_break.py (6 checks;
+      reverting the fix fails 2 of them)"
+    withdrawn_metric: hour-point budget (top 75 of 7970) made every rule look like chance; see PLAN.md §3
+    lstm_caution: trained loss 0.266 to 0.005 while predicting nothing on 2.25% positives; reported as
+      a collapsed arm unless it clears the baselines

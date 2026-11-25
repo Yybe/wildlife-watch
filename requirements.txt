@@ -1,0 +1,29 @@
+# Pinned against C:/Users/xxshi/Desktop/PYTHOM/.venv (Python 3.11, torch 2.7.1+cu118, CUDA working).
+# Regenerate additions with:  .venv/Scripts/python.exe -m pip freeze > DL_PBL/outputs/logs/pip_freeze.txt
+# Do NOT create a new environment for this project; the existing venv already has a GPU torch build.
+
+# core (already installed, versions verified 2026-10-23)
+torch==2.7.1
+torchvision==0.22.1
+numpy
+pandas
+matplotlib
+scikit-learn
+pillow
+
+# needed for the from-scratch + experiment-tracking work (already present via the venv)
+tqdm
+jupyter
+nbconvert
+kaggle==2.2.5
+
+# install when the corresponding week starts, not before
+# Week 4+: tensorboard for learning curves
+#tensorboard
+# Week 5+: detection / segmentation pipeline
+#ultralytics
+#opencv-python
+# Week 6+: config + export
+#pyyaml
+# Week 7+: app UI (skip if the CLI is enough)
+#gradio

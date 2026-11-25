@@ -1,0 +1,12 @@
+images_train=1203
+images_valid=150
+images_test=151
+groups_byte_identical=40
+extra_copies=41
+groups_spanning_splits=17
+pairs_test_train=10
+pairs_train_valid=6
+pairs_test_valid=1
+test_images_duplicated_elsewhere=11
+test_share_duplicated=0.0728
+note=only byte-identical copies are counted; near-duplicates (average-hash hamming<=4) are reported separately in notebooks/05 and were not filtered
